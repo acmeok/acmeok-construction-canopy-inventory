@@ -98,7 +98,7 @@
         </span>
         <span class="photo-text">
           <div class="photo-title">Canopy ID photo</div>
-          <div class="photo-hint">Tap to photograph the ID label</div>
+          <div class="photo-hint">Tap to take or upload a photo of the canopy ID label</div>
         </span>
       </label>
     </div>
@@ -114,7 +114,7 @@
         </span>
         <span class="photo-text">
           <div class="photo-title">Width photo</div>
-          <div class="photo-hint">Tap to photograph the width</div>
+          <div class="photo-hint">Tap to take or upload a photo showing the width</div>
         </span>
       </label>
     </div>
@@ -130,7 +130,7 @@
         </span>
         <span class="photo-text">
           <div class="photo-title">Length photo</div>
-          <div class="photo-hint">Tap to photograph the length</div>
+          <div class="photo-hint">Tap to take or upload a photo showing the length</div>
         </span>
       </label>
     </div>
@@ -177,7 +177,7 @@
       urls[id] = URL.createObjectURL(file);
       img.src = urls[id];
       label.classList.add('has-photo');
-      label.querySelector('.photo-hint').textContent = 'Photo added - tap to retake';
+      label.querySelector('.photo-hint').textContent = 'Photo added - tap to retake or replace';
     } else {
       img.removeAttribute('src');
       label.classList.remove('has-photo');
@@ -230,6 +230,11 @@
       return;
     }
     try { localStorage.setItem(NAME_KEY, name); } catch (err) {}
+
+    if (WEBHOOK_URL.indexOf('__N8N') === 0) {
+      showMessage('err', 'App not built: run "npm run build" and open dist/index.html (or use the deployed site).');
+      return;
+    }
 
     clearMessage();
     setLoading(true);
