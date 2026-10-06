@@ -151,6 +151,14 @@
   var JPEG_QUALITY = 0.8;
   var NAME_KEY = 'canopy.workerName';
 
+  // One ID per canopy. Reused on every retry so n8n completes the same Airtable row
+  // instead of creating a duplicate. Reset only after a successful submit.
+  var submissionId = null;
+  function newSubmissionId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+  }
+
   var form = document.getElementById('form');
   var workerInput = document.getElementById('worker');
   var submitBtn = document.getElementById('submit');
@@ -236,7 +244,8 @@
 
     Promise.all(photoIds.map(function (id) { return fileToBase64(document.getElementById(id).files[0]); }))
       .then(function (b64) {
-        var body = { worker_name: name, submitted_at: new Date().toISOString() };
+        if (!submissionId) submissionId = newSubmissionId();
+        var body = { submission_id: submissionId, worker_name: name, submitted_at: new Date().toISOString() };
         photoIds.forEach(function (id, i) { body[fieldNames[id]] = b64[i]; });
         var ctrl = new AbortController();
         var timer = setTimeout(function () { ctrl.abort(); }, TIMEOUT_MS);
@@ -253,6 +262,7 @@
           document.getElementById(id).value = '';
           setThumb(id, null);
         });
+        submissionId = null;
         showMessage('ok', 'Canopy submitted successfully.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       })

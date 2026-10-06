@@ -21,6 +21,7 @@ Plain HTML/CSS/vanilla JS, no frameworks, no build step, no auth, no offline que
 
 ```json
 {
+  "submission_id": "string (one per canopy, reused on retries)",
   "worker_name": "string",
   "submitted_at": "ISO timestamp",
   "canopy_id_photo": "base64 string",
@@ -29,7 +30,8 @@ Plain HTML/CSS/vanilla JS, no frameworks, no build step, no auth, no offline que
 }
 ```
 
-- On success the three photos are cleared and the name stays. On any error or timeout nothing is cleared.
+- On success the three photos are cleared and the name stays. On any error or timeout nothing is cleared, so the worker just taps Submit again.
+- The app makes one `submission_id` per canopy and reuses it on every retry; it is replaced only after a success. n8n uses it so a retry completes the same Airtable row instead of creating a duplicate.
 - n8n stamps the submission time itself in Oklahoma (Central) time, e.g. `7/1/2026 12:19am`.
 
 ## Environment variable
@@ -48,6 +50,8 @@ Create these fields (names must match exactly):
 |---|---|
 | Worker Name | Single line text (primary field) |
 | Submitted At | Single line text (filled by n8n, e.g. `7/1/2026 12:19am`) |
+| Submission ID | Single line text |
+| Status | Single select with options `Incomplete` and `Complete` |
 | Canopy ID Photo | Attachment |
 | Width Photo | Attachment |
 | Length Photo | Attachment |
@@ -57,9 +61,20 @@ Create these fields (names must match exactly):
 1. In n8n choose **Import from file** and select [n8n/canopy-submission-workflow.json](n8n/canopy-submission-workflow.json). In each of the four HTTP Request nodes pick your Airtable credential, and replace the base ID (`appAKZswA7WRzjVl2`) and table ID (`tblvYdjqwYyIF6S8f`) in the URLs if you use a different base. The credential must be allowed to be used in HTTP Request nodes.
 2. Activate the workflow and copy the **Production URL** of the Webhook node (ends in `/webhook/canopy-submit`). That is your `N8N_WEBHOOK_URL`.
 
-Flow: Webhook -> Create Airtable Record -> Upload Canopy ID / Width / Length photos -> Respond to Webhook (`{"success": true}`).
+Flow:
 
-Airtable only accepts base64 files through its *upload attachment* endpoint, which needs an existing record ID. So the workflow creates the record first, then uploads each photo to it. If any step fails, n8n returns an error and the app shows "Something went wrong."
+1. **Webhook** receives the POST.
+2. **Validate Request** rejects bad or incomplete requests before anything is written.
+3. **Find Existing Record** looks up a row with the same Submission ID.
+4. **Row Exists?** If not, **Create Airtable Record** makes one with Status `Incomplete`.
+5. **Plan Uploads** works out which photo fields are still empty.
+6. Each missing photo is uploaded (already-uploaded ones are skipped).
+7. **Mark Complete** sets Status to `Complete`.
+8. **Respond to Webhook** returns `{"success": true}`.
+
+If anything fails, n8n returns an error, the row stays `Incomplete`, and the retry (same Submission ID) uploads only what is missing. Rows stuck on `Incomplete` are submissions the worker never retried. The Airtable calls retry up to 3 times on transient errors.
+
+Airtable only accepts base64 files through its *upload attachment* endpoint, which needs an existing record ID. So the workflow creates the record first, then uploads each photo to it, one after another.
 
 ## Deploy to Vercel
 

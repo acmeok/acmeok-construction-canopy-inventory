@@ -2,6 +2,10 @@
   "name": "Canopy Submission to Airtable",
   "nodes": [
     {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "canopy-submit",
       "parameters": {
         "httpMethod": "POST",
         "path": "canopy-submit",
@@ -10,134 +14,352 @@
           "allowedOrigins": "*"
         }
       },
-      "id": "a1000000-0000-4000-8000-000000000001",
-      "name": "Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [
-        0,
-        0
-      ],
-      "webhookId": "canopy-submit"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://api.airtable.com/v0/appAKZswA7WRzjVl2/tblvYdjqwYyIF6S8f",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ fields: { \"Worker Name\": $('Webhook').item.json.body.worker_name, \"Submitted At\": $now.setZone('America/Chicago').toFormat('M/d/yyyy h:mma').toLowerCase() } }) }}",
-        "options": {},
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "airtableOAuth2Api"
-      },
-      "id": "a1000000-0000-4000-8000-000000000002",
-      "name": "Create Airtable Record",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "c0000001-0000-4000-8000-000000000001",
       "position": [
         240,
         0
-      ],
-      "credentials": {
-        "airtableOAuth2Api": {
-          "id": "T0nfs4Xj1llRPIhl",
-          "name": "taha@acmeok.com"
-        }
-      }
+      ]
     },
     {
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "parameters": {
-        "method": "POST",
-        "url": "=https://content.airtable.com/v0/appAKZswA7WRzjVl2/{{ $('Create Airtable Record').item.json.id }}/{{ encodeURIComponent('Canopy ID Photo') }}/uploadAttachment",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ contentType: 'image/jpeg', filename: 'canopy-id.jpg', file: $('Webhook').item.json.body.canopy_id_photo }) }}",
-        "options": {},
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "airtableOAuth2Api"
+        "jsCode": "const b = $input.first().json.body || {};\nconst sid = String(b.submission_id || '');\nif (!/^[A-Za-z0-9-]{8,64}$/.test(sid)) throw new Error('Invalid submission_id');\nif (!String(b.worker_name || '').trim()) throw new Error('Missing worker_name');\nfor (const k of ['canopy_id_photo', 'width_photo', 'length_photo']) {\n  if (typeof b[k] !== 'string' || b[k].length < 100) throw new Error('Missing ' + k);\n  if (b[k].length > 6500000) throw new Error(k + ' is too large');\n}\nreturn [{ json: { submission_id: sid, worker_name: String(b.worker_name).trim(), formula: '{Submission ID}=\"' + sid + '\"' } }];"
       },
-      "id": "a1000000-0000-4000-8000-000000000003",
-      "name": "Upload Canopy ID Photo",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "c0000002-0000-4000-8000-000000000001",
       "position": [
         480,
         0
-      ],
+      ]
+    },
+    {
+      "name": "Find Existing Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "credentials": {
         "airtableOAuth2Api": {
           "id": "T0nfs4Xj1llRPIhl",
           "name": "taha@acmeok.com"
         }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://content.airtable.com/v0/appAKZswA7WRzjVl2/{{ $('Create Airtable Record').item.json.id }}/{{ encodeURIComponent('Width Photo') }}/uploadAttachment",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ contentType: 'image/jpeg', filename: 'width.jpg', file: $('Webhook').item.json.body.width_photo }) }}",
-        "options": {},
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "airtableOAuth2Api"
       },
-      "id": "a1000000-0000-4000-8000-000000000004",
-      "name": "Upload Width Photo",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.airtable.com/v0/appAKZswA7WRzjVl2/tblvYdjqwYyIF6S8f?maxRecords=1&filterByFormula={{ encodeURIComponent($json.formula) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableOAuth2Api",
+        "options": {}
+      },
+      "id": "c0000003-0000-4000-8000-000000000001",
       "position": [
         720,
         0
-      ],
-      "credentials": {
-        "airtableOAuth2Api": {
-          "id": "T0nfs4Xj1llRPIhl",
-          "name": "taha@acmeok.com"
-        }
-      }
+      ]
     },
     {
+      "name": "Row Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "parameters": {
-        "method": "POST",
-        "url": "=https://content.airtable.com/v0/appAKZswA7WRzjVl2/{{ $('Create Airtable Record').item.json.id }}/{{ encodeURIComponent('Length Photo') }}/uploadAttachment",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ contentType: 'image/jpeg', filename: 'length.jpg', file: $('Webhook').item.json.body.length_photo }) }}",
-        "options": {},
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "airtableOAuth2Api"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "rowexists",
+              "leftValue": "={{ $json.records.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "id": "a1000000-0000-4000-8000-000000000005",
-      "name": "Upload Length Photo",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "c0000004-0000-4000-8000-000000000001",
       "position": [
         960,
         0
-      ],
+      ]
+    },
+    {
+      "name": "Create Airtable Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "credentials": {
         "airtableOAuth2Api": {
           "id": "T0nfs4Xj1llRPIhl",
           "name": "taha@acmeok.com"
         }
-      }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.airtable.com/v0/appAKZswA7WRzjVl2/tblvYdjqwYyIF6S8f",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fields: { \"Worker Name\": $('Validate Request').first().json.worker_name, \"Submitted At\": $now.setZone('America/Chicago').toFormat('M/d/yyyy h:mma').toLowerCase(), \"Submission ID\": $('Validate Request').first().json.submission_id, \"Status\": \"Incomplete\" } }) }}",
+        "options": {}
+      },
+      "id": "c0000005-0000-4000-8000-000000000001",
+      "position": [
+        1200,
+        0
+      ]
     },
     {
+      "name": "Plan Uploads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nif (j.records) {\n  const r = j.records[0];\n  const has = (f) => (r.fields[f] || []).length > 0;\n  return [{ json: { recordId: r.id, needCanopy: !has('Canopy ID Photo'), needWidth: !has('Width Photo'), needLength: !has('Length Photo') } }];\n}\nreturn [{ json: { recordId: j.id, needCanopy: true, needWidth: true, needLength: true } }];"
+      },
+      "id": "c0000006-0000-4000-8000-000000000001",
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "name": "Need Canopy ID Photo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needcanopyidphoto",
+              "leftValue": "={{ $('Plan Uploads').first().json.needCanopy }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c0000007-0000-4000-8000-000000000001",
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "name": "Upload Canopy ID Photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "credentials": {
+        "airtableOAuth2Api": {
+          "id": "T0nfs4Xj1llRPIhl",
+          "name": "taha@acmeok.com"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "POST",
+        "url": "=https://content.airtable.com/v0/appAKZswA7WRzjVl2/{{ $('Plan Uploads').first().json.recordId }}/{{ encodeURIComponent('Canopy ID Photo') }}/uploadAttachment",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contentType: 'image/jpeg', filename: 'canopy-id.jpg', file: $('Webhook').first().json.body.canopy_id_photo }) }}",
+        "options": {}
+      },
+      "id": "c0000008-0000-4000-8000-000000000001",
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "name": "Need Width Photo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needwidthphoto",
+              "leftValue": "={{ $('Plan Uploads').first().json.needWidth }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c0000009-0000-4000-8000-000000000001",
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "name": "Upload Width Photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "credentials": {
+        "airtableOAuth2Api": {
+          "id": "T0nfs4Xj1llRPIhl",
+          "name": "taha@acmeok.com"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "POST",
+        "url": "=https://content.airtable.com/v0/appAKZswA7WRzjVl2/{{ $('Plan Uploads').first().json.recordId }}/{{ encodeURIComponent('Width Photo') }}/uploadAttachment",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contentType: 'image/jpeg', filename: 'width.jpg', file: $('Webhook').first().json.body.width_photo }) }}",
+        "options": {}
+      },
+      "id": "c0000010-0000-4000-8000-000000000001",
+      "position": [
+        2400,
+        0
+      ]
+    },
+    {
+      "name": "Need Length Photo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needlengthphoto",
+              "leftValue": "={{ $('Plan Uploads').first().json.needLength }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c0000011-0000-4000-8000-000000000001",
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "name": "Upload Length Photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "credentials": {
+        "airtableOAuth2Api": {
+          "id": "T0nfs4Xj1llRPIhl",
+          "name": "taha@acmeok.com"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "POST",
+        "url": "=https://content.airtable.com/v0/appAKZswA7WRzjVl2/{{ $('Plan Uploads').first().json.recordId }}/{{ encodeURIComponent('Length Photo') }}/uploadAttachment",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contentType: 'image/jpeg', filename: 'length.jpg', file: $('Webhook').first().json.body.length_photo }) }}",
+        "options": {}
+      },
+      "id": "c0000012-0000-4000-8000-000000000001",
+      "position": [
+        2880,
+        0
+      ]
+    },
+    {
+      "name": "Mark Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "credentials": {
+        "airtableOAuth2Api": {
+          "id": "T0nfs4Xj1llRPIhl",
+          "name": "taha@acmeok.com"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.airtable.com/v0/appAKZswA7WRzjVl2/tblvYdjqwYyIF6S8f/{{ $('Plan Uploads').first().json.recordId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fields: { Status: \"Complete\" } }) }}",
+        "options": {}
+      },
+      "id": "c0000013-0000-4000-8000-000000000001",
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ success: true, record_id: $('Create Airtable Record').item.json.id }) }}",
+        "responseBody": "={{ JSON.stringify({ success: true, record_id: $('Plan Uploads').first().json.recordId, submission_id: $('Validate Request').first().json.submission_id }) }}",
         "options": {
           "responseCode": 200
         }
       },
-      "id": "a1000000-0000-4000-8000-000000000006",
-      "name": "Respond to Webhook",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
+      "id": "c0000014-0000-4000-8000-000000000001",
       "position": [
-        1200,
+        3360,
         0
       ]
     }
@@ -145,6 +367,46 @@
   "connections": {
     "Webhook": {
       "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Record": {
+      "main": [
+        [
+          {
+            "node": "Row Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row Exists?": {
+      "main": [
+        [
+          {
+            "node": "Plan Uploads",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Create Airtable Record",
@@ -158,7 +420,72 @@
       "main": [
         [
           {
+            "node": "Plan Uploads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Uploads": {
+      "main": [
+        [
+          {
+            "node": "Need Canopy ID Photo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need Canopy ID Photo?": {
+      "main": [
+        [
+          {
             "node": "Upload Canopy ID Photo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Need Width Photo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need Width Photo?": {
+      "main": [
+        [
+          {
+            "node": "Upload Width Photo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Need Length Photo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need Length Photo?": {
+      "main": [
+        [
+          {
+            "node": "Upload Length Photo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Complete",
             "type": "main",
             "index": 0
           }
@@ -169,7 +496,7 @@
       "main": [
         [
           {
-            "node": "Upload Width Photo",
+            "node": "Need Width Photo?",
             "type": "main",
             "index": 0
           }
@@ -180,7 +507,7 @@
       "main": [
         [
           {
-            "node": "Upload Length Photo",
+            "node": "Need Length Photo?",
             "type": "main",
             "index": 0
           }
@@ -188,6 +515,17 @@
       ]
     },
     "Upload Length Photo": {
+      "main": [
+        [
+          {
+            "node": "Mark Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Complete": {
       "main": [
         [
           {
