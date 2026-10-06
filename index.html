@@ -89,6 +89,7 @@
   #message { display: none; margin-top: 16px; padding: 16px; border-radius: 12px; font-size: 1.1rem; font-weight: 600; }
   #message.ok { display: block; background: var(--ok-bg); color: var(--ok); }
   #message.err { display: block; background: var(--err-bg); color: var(--err); }
+  #message .detail { font-size: .8rem; font-weight: 400; opacity: .8; margin-top: 6px; word-break: break-word; }
 </style>
 </head>
 <body>
@@ -192,33 +193,61 @@
 
   try { workerInput.value = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
 
-  function showMessage(type, text) {
+  function showMessage(type, text, detail) {
     message.className = type;
     message.textContent = text;
+    if (detail) {
+      var d = document.createElement('div');
+      d.className = 'detail';
+      d.textContent = detail;
+      message.appendChild(d);
+    }
   }
   function clearMessage() { message.className = ''; message.textContent = ''; }
 
-  // Thumbnails
-  var urls = {};
-  function setThumb(id, file) {
+  // Photos are read and shrunk into memory the moment they are picked, so we never depend on
+  // the original File staying readable (Android can invalidate it once the input is reset).
+  var photos = {};   // id -> raw base64 JPEG
+  var pending = 0;   // photos still being processed
+
+  function setThumb(id, b64) {
     var label = document.querySelector('[data-photo="' + id + '"]');
     var img = label.querySelector('img');
-    if (urls[id]) { URL.revokeObjectURL(urls[id]); delete urls[id]; }
-    if (file) {
-      urls[id] = URL.createObjectURL(file);
-      img.src = urls[id];
+    var hint = label.querySelector('.photo-hint');
+    if (b64) {
+      img.src = 'data:image/jpeg;base64,' + b64;
       label.classList.add('has-photo');
-      label.querySelector('.photo-hint').textContent = 'Photo added - tap a button to replace it';
+      hint.textContent = 'Photo added - tap a button to replace it';
     } else {
       img.removeAttribute('src');
       label.classList.remove('has-photo');
-      label.querySelector('.photo-hint').textContent = label.dataset.hint;
+      hint.textContent = label.dataset.hint;
     }
   }
+  function setPhoto(id, b64) { photos[id] = b64 || null; setThumb(id, b64); }
+
+  // Downscale + convert to JPEG, return raw base64 (no data: prefix).
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var scale = Math.min(1, MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight));
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.naturalWidth * scale);
+          canvas.height = Math.round(img.naturalHeight * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY).split(',')[1]);
+        } catch (err) { reject(err); }
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Could not read the photo')); };
+      img.src = url;
+    });
+  }
+
   // Each photo has two inputs: one opens the camera, one opens the phone's files/gallery.
-  // Whichever the worker uses, the chosen File is kept here and the inputs are reset.
-  var files = {};
-  function setPhoto(id, file) { files[id] = file || null; setThumb(id, file); }
   photoIds.forEach(function (id) {
     var label = document.querySelector('[data-photo="' + id + '"]');
     label.dataset.hint = label.querySelector('.photo-hint').textContent;
@@ -227,32 +256,22 @@
       input.addEventListener('change', function () {
         var f = input.files[0];
         if (!f) return; // picker cancelled: keep the current photo
-        setPhoto(id, f);
-        document.getElementById(id + '-cam').value = '';
-        document.getElementById(id + '-up').value = '';
         clearMessage();
+        pending++;
+        label.querySelector('.photo-hint').textContent = 'Reading photo...';
+        fileToBase64(f).then(function (b64) {
+          setPhoto(id, b64);
+        }).catch(function (err) {
+          setPhoto(id, photos[id]); // restore previous state
+          showMessage('err', 'Could not read that photo. Please try again.', (err && (err.name + ': ' + err.message)) || '');
+        }).then(function () {
+          pending--;
+          document.getElementById(id + '-cam').value = '';
+          document.getElementById(id + '-up').value = '';
+        });
       });
     });
   });
-
-  // Downscale + convert to JPEG, return raw base64 (no data: prefix).
-  function fileToBase64(file) {
-    return new Promise(function (resolve, reject) {
-      var url = URL.createObjectURL(file);
-      var img = new Image();
-      img.onload = function () {
-        var scale = Math.min(1, MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight));
-        var canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.naturalWidth * scale);
-        canvas.height = Math.round(img.naturalHeight * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY).split(',')[1]);
-      };
-      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Could not read image')); };
-      img.src = url;
-    });
-  }
 
   function setLoading(on) {
     submitBtn.disabled = on;
@@ -266,7 +285,8 @@
 
     var name = workerInput.value.trim();
     if (!name) { showMessage('err', 'Please enter your name.'); workerInput.focus(); return; }
-    var missing = photoIds.filter(function (id) { return !files[id]; });
+    if (pending > 0) { showMessage('err', 'A photo is still loading. Please wait a moment and tap Submit again.'); return; }
+    var missing = photoIds.filter(function (id) { return !photos[id]; });
     if (missing.length) {
       showMessage('err', 'Please add all three photos (missing: ' + missing.join(', ') + ').');
       return;
@@ -276,7 +296,7 @@
     clearMessage();
     setLoading(true);
 
-    Promise.all(photoIds.map(function (id) { return fileToBase64(files[id]); }))
+    Promise.resolve(photoIds.map(function (id) { return photos[id]; }))
       .then(function (b64) {
         if (!submissionId) submissionId = newSubmissionId();
         var body = { submission_id: submissionId, worker_name: name, submitted_at: new Date().toISOString() };
@@ -291,14 +311,14 @@
         }).finally(function () { clearTimeout(timer); });
       })
       .then(function (res) {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) { var e = new Error('Server replied ' + res.status); e.name = 'HTTP'; throw e; }
         photoIds.forEach(function (id) { setPhoto(id, null); });
         submissionId = null;
         showMessage('ok', 'Canopy submitted successfully.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       })
-      .catch(function () {
-        showMessage('err', 'Something went wrong. Please try again.');
+      .catch(function (err) {
+        showMessage('err', 'Something went wrong. Please try again.', err && (err.name + ': ' + err.message));
       })
       .then(function () { setLoading(false); });
   });
