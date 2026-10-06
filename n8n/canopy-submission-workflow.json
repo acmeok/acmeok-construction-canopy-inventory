@@ -1,0 +1,125 @@
+{
+  "name": "Canopy Submission to Airtable",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "canopy-submit",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "canopy-submit"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.airtable.com/v0/{{ $env.AIRTABLE_BASE_ID }}/{{ encodeURIComponent($env.AIRTABLE_TABLE_NAME) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.AIRTABLE_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fields: { \"Worker Name\": $('Webhook').item.json.body.worker_name, \"Submitted At\": $('Webhook').item.json.body.submitted_at } }) }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Create Airtable Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://content.airtable.com/v0/{{ $env.AIRTABLE_BASE_ID }}/{{ $('Create Airtable Record').item.json.id }}/{{ encodeURIComponent('Canopy ID Photo') }}/uploadAttachment",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.AIRTABLE_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contentType: 'image/jpeg', filename: 'canopy-id.jpg', file: $('Webhook').item.json.body.canopy_id_photo }) }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Upload Canopy ID Photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://content.airtable.com/v0/{{ $env.AIRTABLE_BASE_ID }}/{{ $('Create Airtable Record').item.json.id }}/{{ encodeURIComponent('Width Photo') }}/uploadAttachment",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.AIRTABLE_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contentType: 'image/jpeg', filename: 'width.jpg', file: $('Webhook').item.json.body.width_photo }) }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Upload Width Photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://content.airtable.com/v0/{{ $env.AIRTABLE_BASE_ID }}/{{ $('Create Airtable Record').item.json.id }}/{{ encodeURIComponent('Length Photo') }}/uploadAttachment",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.AIRTABLE_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contentType: 'image/jpeg', filename: 'length.jpg', file: $('Webhook').item.json.body.length_photo }) }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Upload Length Photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, record_id: $('Create Airtable Record').item.json.id }) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Create Airtable Record", "type": "main", "index": 0 }]] },
+    "Create Airtable Record": { "main": [[{ "node": "Upload Canopy ID Photo", "type": "main", "index": 0 }]] },
+    "Upload Canopy ID Photo": { "main": [[{ "node": "Upload Width Photo", "type": "main", "index": 0 }]] },
+    "Upload Width Photo": { "main": [[{ "node": "Upload Length Photo", "type": "main", "index": 0 }]] },
+    "Upload Length Photo": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
