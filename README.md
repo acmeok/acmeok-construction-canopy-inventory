@@ -9,7 +9,7 @@ Plain HTML/CSS/vanilla JS, no frameworks, no build step, no auth, no offline que
 | File | Purpose |
 |---|---|
 | `index.html` | The whole app (HTML, CSS, JS) |
-| `manifest.webmanifest`, `sw.js`, `icons/` | PWA install support (no caching) |
+| `manifest.webmanifest`, `sw.js`, `images/` (company logo and app icon) | PWA install support (no caching) |
 | `api/submit.js` | Tiny Vercel function that forwards the form to n8n. Keeps the webhook URL out of the browser. |
 | `vercel.json` | Function timeout and service worker header |
 | `n8n/canopy-submission-workflow.json` | The n8n workflow to import |
