@@ -43,7 +43,7 @@ Create a table with these fields (names must match exactly):
 | Field | Type |
 |---|---|
 | Worker Name | Single line text |
-| Submitted At | Date (include time) |
+| Submitted At | Single line text (filled by n8n in Oklahoma time, e.g. `7/1/2026 12:19am`) |
 | Canopy ID Photo | Attachment |
 | Width Photo | Attachment |
 | Length Photo | Attachment |

@@ -26,7 +26,7 @@
         "url": "=https://api.airtable.com/v0/appAKZswA7WRzjVl2/tblvYdjqwYyIF6S8f",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ fields: { \"Worker Name\": $('Webhook').item.json.body.worker_name, \"Submitted At\": $('Webhook').item.json.body.submitted_at } }) }}",
+        "jsonBody": "={{ JSON.stringify({ fields: { \"Worker Name\": $('Webhook').item.json.body.worker_name, \"Submitted At\": $now.setZone('America/Chicago').toFormat('M/d/yyyy h:mma').toLowerCase() } }) }}",
         "options": {},
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "airtableOAuth2Api"
