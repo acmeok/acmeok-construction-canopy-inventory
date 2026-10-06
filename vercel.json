@@ -1,6 +1,5 @@
 {
-  "buildCommand": "node build.js",
-  "outputDirectory": "dist",
+  "functions": { "api/submit.js": { "maxDuration": 60 } },
   "headers": [
     { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
   ]

@@ -144,8 +144,8 @@
 (function () {
   'use strict';
 
-  // Replaced at build time (see build.js) from the N8N_WEBHOOK_URL env var.
-  var WEBHOOK_URL = '__N8N_WEBHOOK_URL__';
+  // Vercel function (api/submit.js) that forwards to n8n using the N8N_WEBHOOK_URL env var.
+  var WEBHOOK_URL = '/api/submit';
   var TIMEOUT_MS = 60000;
   var MAX_DIMENSION = 1600; // long edge, px
   var JPEG_QUALITY = 0.8;
@@ -230,11 +230,6 @@
       return;
     }
     try { localStorage.setItem(NAME_KEY, name); } catch (err) {}
-
-    if (WEBHOOK_URL.indexOf('__N8N') === 0) {
-      showMessage('err', 'App not built: run "npm run build" and open dist/index.html (or use the deployed site).');
-      return;
-    }
 
     clearMessage();
     setLoading(true);
