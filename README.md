@@ -32,15 +32,9 @@ N8N_WEBHOOK_URL=
 
 Copy `.env.example` to `.env` for local use. `build.js` injects this value into `dist/index.html` at build time. Because the app is static, the URL is visible in the page source; that is inherent to calling a webhook straight from the browser.
 
-### n8n (set on the n8n instance)
+### n8n
 
-```
-AIRTABLE_API_KEY=      # Personal access token with data.records:write
-AIRTABLE_BASE_ID=      # appXXXXXXXXXXXXXX
-AIRTABLE_TABLE_NAME=
-```
-
-The token needs the `data.records:write` scope on the base. n8n must allow `$env` access in expressions (do not set `N8N_BLOCK_ENV_ACCESS_IN_NODE=true`).
+No environment variables are needed on n8n. The workflow uses an n8n Airtable OAuth2 credential, and the Airtable base ID and table ID are set in the HTTP Request nodes. The credential must allow use in HTTP Request nodes (credential settings -> allowed domains: all, or at least api.airtable.com and content.airtable.com).
 
 ## Airtable table
 
@@ -56,12 +50,12 @@ Create a table with these fields (names must match exactly):
 
 ## n8n workflow
 
-1. In n8n choose **Import from file** and select [n8n/canopy-submission-workflow.json](n8n/canopy-submission-workflow.json).
+1. In n8n choose **Import from file** and select [n8n/canopy-submission-workflow.json](n8n/canopy-submission-workflow.json). In each of the four HTTP Request nodes pick your Airtable credential, and replace the base ID (`appAKZswA7WRzjVl2`) and table ID (`tblvYdjqwYyIF6S8f`) in the URLs if you use a different base.
 2. Activate the workflow and copy the **Production URL** of the Webhook node (ends in `/webhook/canopy-submit`). That is your `N8N_WEBHOOK_URL`.
 
 Flow: Webhook -> Create Airtable Record -> Upload Canopy ID / Width / Length photos -> Respond to Webhook (`{"success": true}`).
 
-Note: Airtable can only accept base64 files through its *upload attachment* endpoint, which needs an existing record ID. So the workflow creates the record first, then uploads each photo to it, rather than uploading before creating. The Webhook node has CORS set to allow all origins; restrict `allowedOrigins` to your Vercel domain once deployed. If any step fails, n8n returns an error and the app shows "Something went wrong."
+Note: Airtable can only accept base64 files through its *upload attachment* endpoint, which needs an existing record ID. So the workflow creates the record first, then uploads each photo to it, rather than uploading before creating. The Webhook node has CORS set to allow all origins; you can restrict `allowedOrigins` to your Vercel domain once deployed. If any step fails, n8n returns an error and the app shows "Something went wrong."
 
 ## Run locally
 
